@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# vim: set hls is ai et sw=4 sts=4 ts=8 nu ft=python:
 '''
 Created on Dec 6, 2009
 
@@ -21,3 +23,4 @@ class Mp4File(AtomWithChildren):
         # self.atoms = parse_atoms(file, getFileSize(file))
         AtomWithChildren.__init__(self, getFileSize(file),
                                   '', '', 0, file)
+
