@@ -191,6 +191,18 @@ class AtomWithChildren(Atom):
     def __init__(self, size, type, name, offset, file):
         Atom.__init__(self, size, type, name, offset, file)
         self._set_children(parse_atoms(file, offset + size))
+    def write(self, stream):
+        '''Write out the box into the given stream.
+
+        :param stream: a writable stream object.
+        '''
+        self.file.seek(self.offset, os.SEEK_SET)
+        stream.write(self.file.read(self.size))
+
+    def writeFile(self, filename):
+        with open(filename, 'w') as fout:
+            self.write(fout)
+
 
 class ftyp(Atom):
     def __init__(self, size, type, name, offset, file):
