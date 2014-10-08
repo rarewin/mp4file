@@ -60,6 +60,8 @@ ATOM_WITH_CHILDREN = [ 'stik', 'moov', 'trak',
                        'desc', '\xa9lyr', 'tvnn',
                        'tvsh', 'tven', 'tvsn',
                        'tves', 'purd', 'pgap',
+                       'mdia', 'minf', 'dinf', 
+                       'stbl', 
                        'moof', 'traf',
                       ]
 
@@ -119,8 +121,6 @@ def create_atom(size, type, offset, file):
     # python variable names
     if (ATOM_TYPE_MAP.has_key(type)):
         clz = ATOM_TYPE_MAP[type]
-    if type in ATOM_WITH_CHILDREN:
-        return AtomWithChildren(size, type, clz, offset, file)
     try:
         # Try and eval the class into existance
         return eval("%s(size, type, clz, offset, file)" % clz)
@@ -167,6 +167,14 @@ class Atom(object):
         self.children = []
         self.attrs = {}
 
+        if type in ATOM_WITH_CHILDREN:
+            self._set_children(parse_atoms(file, offset + size))
+
+        # if type in FULL_BOX:
+        #     file.seek(offset+8) # FIXME: There might be largsize and uuid!
+        #     self.version = read8(file)
+        #     self.flags = file.read(3)
+
     def _set_attr(self, key, value):
         self.attrs[key] = value
 
@@ -188,10 +196,6 @@ class Atom(object):
     def findall(self, path):
         return findall_path(self, path)
 
-class AtomWithChildren(Atom):
-    def __init__(self, size, type, name, offset, file):
-        Atom.__init__(self, size, type, name, offset, file)
-        self._set_children(parse_atoms(file, offset + size))
     def write(self, stream):
         '''Write out the box into the given stream.
 
