@@ -60,6 +60,7 @@ ATOM_WITH_CHILDREN = [ 'stik', 'moov', 'trak',
                        'desc', '\xa9lyr', 'tvnn',
                        'tvsh', 'tven', 'tvsn',
                        'tves', 'purd', 'pgap',
+                       'moof', 'traf',
                       ]
 
 class EndOFFile(Exception):
