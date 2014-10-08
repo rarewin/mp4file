@@ -41,17 +41,6 @@ def type_to_str(data):
 
     return '%c%c%c%c' % (d, c, b, a)
 
-def parse_atom(file):
-    try:
-        offset = file.tell()
-        size = read32(file)
-        type = type_to_str(read32(file))
-        if (size == 1):
-            size = read32(file)
-        return create_atom(size, type, offset, file)
-    except EndOFFile:
-        return None
-
 ATOM_TYPE_MAP = { '\xa9too': 'encoder',
                   '\xa9nam': 'title',
                   '\xa9alb': 'album',
@@ -101,6 +90,15 @@ ATOM_WITH_CHILDREN = [ 'stik', 'moov', 'trak',
                        'tves', 'purd', 'pgap',
                       ]
 
+def read64(file):
+    '''Return a number by consuming 64 bits from the file's current position.
+    '''
+    data = file.read(8)
+    if (data is None or len(data) <> 8):
+        raise EndOFFile()
+    return struct.unpack(">Q", data)[0]
+
+
 def create_atom(size, type, offset, file):
     clz = type
     # Possibly remap atom types that aren't valid
@@ -115,6 +113,24 @@ def create_atom(size, type, offset, file):
     except NameError:
         # Not defined, use generic Atom
         return Atom(size, type, clz, offset, file)
+
+
+def parse_atom(file):
+    '''Parse the stream to an atom, just from it's current stream position.
+    '''
+    try:
+        offset = file.tell()
+        size = read32(file)
+        type = type_to_str(read32(file))
+        if (size == 1):
+            size = read64(file)
+        elif size == 0:
+            file.seek(0, os.SEEK_END)
+            size = file.tell() - offset
+        return create_atom(size, type, offset, file)
+    except EndOFFile:
+        return None
+
 
 def parse_atoms(file, maxFileOffset):
     atoms = []
