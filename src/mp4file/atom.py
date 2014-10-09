@@ -60,7 +60,22 @@ ATOM_WITH_CHILDREN = [ 'stik', 'moov', 'trak',
                        'desc', '\xa9lyr', 'tvnn',
                        'tvsh', 'tven', 'tvsn',
                        'tves', 'purd', 'pgap',
+                       'mdia', 'minf', 'dinf', 
+                       'stbl', 
+                       'moof', 'traf',
                       ]
+
+FULL_BOX = (
+        'mfhd', 'tfhd', 'trun', 
+        'ctts', 'dref', 'elst',
+        'esds', 'hmhd', 'mdhd',
+        'mehd', 'mvhd', 'nmhd',
+        'smhd', 'stco', 'stsc',
+        'stsd', 'stss', 'stsz',
+        'stts', 'tfra', 'tkhd',
+        'vmhd', 'hdlr', 'minf',
+        )
+
 
 class EndOFFile(Exception):
     def __init_(self):
@@ -83,6 +98,15 @@ def read32(file):
     if (data is None or len(data) <> 4):
         raise EndOFFile()
     return struct.unpack(">I", data)[0]
+
+
+def read24(file):
+    '''Return a number by consuming 24 bits from the file's current position.
+    '''
+    data = file.read(3)
+    if (data is None or len(data) <> 3):
+        raise EndOFFile()
+    return struct.unpack(">I", '\0'+data)[0]
 
 
 def read16(file):
@@ -118,8 +142,6 @@ def create_atom(size, type, offset, file):
     # python variable names
     if (ATOM_TYPE_MAP.has_key(type)):
         clz = ATOM_TYPE_MAP[type]
-    if type in ATOM_WITH_CHILDREN:
-        return AtomWithChildren(size, type, clz, offset, file)
     try:
         # Try and eval the class into existance
         return eval("%s(size, type, clz, offset, file)" % clz)
@@ -135,11 +157,6 @@ def parse_atom(file):
         offset = file.tell()
         size = read32(file)
         type = type_to_str(read32(file))
-        if (size == 1):
-            size = read64(file)
-        elif size == 0:
-            file.seek(0, os.SEEK_END)
-            size = file.tell() - offset
         return create_atom(size, type, offset, file)
     except EndOFFile:
         return None
@@ -156,15 +173,49 @@ def parse_atoms(file, maxFileOffset):
 
     return atoms
 
+
 class Atom(object):
     def __init__(self, size, type, name, offset, file):
         self.size = size
         self.type = type
+        self.version = None
+        self.flags = None
+        self.largesize = None
+        self.uuids = None
+
         self.name = name
         self.offset = offset
+        self.header_size = 8
         self.file = file
+
         self.children = []
         self.attrs = {}
+
+        if type in FULL_BOX:
+            file.seek(offset+self.header_size)
+            self.version = read8(file)
+            self.flags = read24(file)
+            self.header_size += 4
+
+        if size == 1:
+            file.seek(offset+self.header_size)
+            self.largesize = read64(file)
+            self.header_size += 8
+
+        # TODO: handling of size == 0
+
+        if type == 'uuid':
+            file.seek(offset+self.header_size)
+            self.uuids = file.read(16)
+            self.header_size += 16
+
+        if type in ATOM_WITH_CHILDREN:
+            self._set_children(parse_atoms(file, offset + self.get_actual_size()))
+
+    def __str__(self):
+        return self.type
+
+    __repr__ = __str__
 
     def _set_attr(self, key, value):
         self.attrs[key] = value
@@ -178,6 +229,13 @@ class Atom(object):
     def get_attribute(self, key):
         return self.attrs[key]
 
+    def get_actual_size(self):
+        if self.size == 1:
+            return self.largesize
+        if self.size == 0:
+            return None
+        return self.size
+
     def get_atoms(self):
         return self.children
 
@@ -187,17 +245,26 @@ class Atom(object):
     def findall(self, path):
         return findall_path(self, path)
 
-class AtomWithChildren(Atom):
-    def __init__(self, size, type, name, offset, file):
-        Atom.__init__(self, size, type, name, offset, file)
-        self._set_children(parse_atoms(file, offset + size))
     def write(self, stream):
         '''Write out the box into the given stream.
 
         :param stream: a writable stream object.
         '''
+        # header
         self.file.seek(self.offset, os.SEEK_SET)
-        stream.write(self.file.read(self.size))
+        stream.write(struct.pack('>I', self.size))
+        stream.write(self.type)
+        if self.version is not None:
+            stream.write(struct.pack('>B', self.version))
+        if self.flags is not None:
+            stream.write(struct.pack('>I', self.flags)[1:])
+        if self.largesize is not None:
+            stream.write(self.largesize)
+        if self.uuids is not None:
+            stream.write(self.uuids)
+        # data
+        self.file.seek(self.offset+self.header_size, os.SEEK_SET)
+        stream.write(self.file.read(self.get_actual_size()-self.header_size))
 
     def writeFile(self, filename):
         with open(filename, 'w') as fout:
