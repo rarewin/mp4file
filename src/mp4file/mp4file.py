@@ -29,3 +29,11 @@ class Mp4File(Atom):
         file = open(filename, "rb")
         Atom.__init__(self, getFileSize(file), '', '', 0, file)
         self._set_children(parse_atoms(file, getFileSize(file)))
+
+    def write(self, stream):
+        '''Write out the box into the given stream.
+
+        :param stream: a writable stream object.
+        '''
+        for atom in self.children:
+            atom.write(stream)

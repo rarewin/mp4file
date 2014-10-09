@@ -263,8 +263,12 @@ class Atom(object):
         if self.uuids is not None:
             stream.write(self.uuids)
         # data
-        self.file.seek(self.offset+self.header_size, os.SEEK_SET)
-        stream.write(self.file.read(self.get_actual_size()-self.header_size))
+        if self.children:
+            for child in self.children:
+                child.write(stream)
+        else:
+            self.file.seek(self.offset+self.header_size, os.SEEK_SET)
+            stream.write(self.file.read(self.get_actual_size()-self.header_size))
 
     def writeFile(self, filename):
         with open(filename, 'w') as fout:
