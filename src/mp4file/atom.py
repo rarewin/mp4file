@@ -60,9 +60,9 @@ ATOM_WITH_CHILDREN = [ 'stik', 'moov', 'trak',
                        'desc', '\xa9lyr', 'tvnn',
                        'tvsh', 'tven', 'tvsn',
                        'tves', 'purd', 'pgap',
-                       'mdia', 'minf', 'dinf', 
-                       'stbl', 
-                       'moof', 'traf',
+                       'mdia', 'minf',
+                       'stbl', 'edts',
+                       'moof', 'traf', 'stsd',
                       ]
 
 FULL_BOX = (
@@ -73,7 +73,7 @@ FULL_BOX = (
         'smhd', 'stco', 'stsc',
         'stsd', 'stss', 'stsz',
         'stts', 'tfra', 'tkhd',
-        'vmhd', 'hdlr', 'minf',
+        'vmhd', 'hdlr',
         )
 
 
@@ -176,6 +176,10 @@ def parse_atoms(file, maxFileOffset):
 
 class Atom(object):
     def __init__(self, size, type, name, offset, file):
+        self.__init_pre__(size, type, name, offset, file)
+        self.__init_post__(size, type, name, offset, file)
+
+    def __init_pre__(self, size, type, name, offset, file):
         self.size = size
         self.type = type
         self.version = None
@@ -209,6 +213,7 @@ class Atom(object):
             self.uuids = file.read(16)
             self.header_size += 16
 
+    def __init_post__(self, size, type, name, offset, file):
         if type in ATOM_WITH_CHILDREN:
             self._set_children(parse_atoms(file, offset + self.get_actual_size()))
 
@@ -245,13 +250,7 @@ class Atom(object):
     def findall(self, path):
         return findall_path(self, path)
 
-    def write(self, stream):
-        '''Write out the box into the given stream.
-
-        :param stream: a writable stream object.
-        '''
-        # header
-        self.file.seek(self.offset, os.SEEK_SET)
+    def _write_header(self, stream):
         stream.write(struct.pack('>I', self.size))
         stream.write(self.type)
         if self.version is not None:
@@ -262,13 +261,24 @@ class Atom(object):
             stream.write(self.largesize)
         if self.uuids is not None:
             stream.write(self.uuids)
-        # data
+
+    def _write_data(self, stream):
         if self.children:
             for child in self.children:
                 child.write(stream)
         else:
             self.file.seek(self.offset+self.header_size, os.SEEK_SET)
             stream.write(self.file.read(self.get_actual_size()-self.header_size))
+
+    def write(self, stream):
+        '''Write out the box into the given stream.
+
+        :param stream: a writable stream object.
+        '''
+        # header
+        self._write_header(stream)
+        # data
+        self._write_data(stream)
 
     def writeFile(self, filename):
         with open(filename, 'w') as fout:
@@ -287,6 +297,19 @@ class meta(Atom):
         # meta has an extra null after the atom header.  consume it here
         read32(file)
         self._set_children(parse_atoms(file, offset + size))
+
+class stsd(Atom):
+    def __init__(self, size, type, name, offset, file):
+        self.__init_pre__(size, type, name, offset, file)
+        file.seek(self.offset+self.header_size, os.SEEK_SET)
+        self.entry_count = read32(file)
+        self.header_size += 4
+        self.__init_post__(size, type, name, offset, file)
+
+    def write(self, stream):
+        self._write_header(stream)
+        stream.write(struct.pack('>I', self.flags))
+        self._write_data(stream)
 
 class data(Atom):
     def __init__(self, size, type, name, offset, file):
