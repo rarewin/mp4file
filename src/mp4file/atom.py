@@ -62,7 +62,7 @@ ATOM_WITH_CHILDREN = [ 'stik', 'moov', 'trak',
                        'tves', 'purd', 'pgap',
                        'mdia', 'minf',
                        'stbl', 'edts',
-                       'moof', 'traf', 'stsd',
+                       'moof', 'traf',
                       ]
 
 FULL_BOX = (
@@ -73,7 +73,7 @@ FULL_BOX = (
         'smhd', 'stco', 'stsc',
         'stsd', 'stss', 'stsz',
         'stts', 'tfra', 'tkhd',
-        'vmhd', 'hdlr',
+        'vmhd', 'hdlr', 'saio',
         )
 
 
@@ -298,18 +298,20 @@ class meta(Atom):
         read32(file)
         self._set_children(parse_atoms(file, offset + size))
 
-class stsd(Atom):
-    def __init__(self, size, type, name, offset, file):
-        self.__init_pre__(size, type, name, offset, file)
-        file.seek(self.offset+self.header_size, os.SEEK_SET)
-        self.entry_count = read32(file)
-        self.header_size += 4
-        self.__init_post__(size, type, name, offset, file)
-
+class saio(Atom):
     def write(self, stream):
-        self._write_header(stream)
-        stream.write(struct.pack('>I', self.flags))
-        self._write_data(stream)
+        if self.flags:
+            # TODO: special treatment to remove 8 bytes from saio
+            version, flags = self.version, self.flags
+            self.version = self.flags = None
+            self._write_header(stream)
+            self.version, self.flags = version, flags
+            self.file.seek(self.offset+self.header_size+4, os.SEEK_SET)
+            stream.write(self.file.read(self.get_actual_size()-4-self.header_size))
+            stream.write(struct.pack('>I', 0))
+            stream.write(struct.pack('>I', 0))
+        else:
+            super(saio, self).write(stream)
 
 class data(Atom):
     def __init__(self, size, type, name, offset, file):
