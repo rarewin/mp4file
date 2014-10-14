@@ -74,6 +74,7 @@ FULL_BOX = (
         'stsd', 'stss', 'stsz',
         'stts', 'tfra', 'tkhd',
         'vmhd', 'hdlr', 'saio',
+        'pssh',
         )
 
 
@@ -312,6 +313,13 @@ class saio(Atom):
             stream.write(struct.pack('>I', 0))
         else:
             super(saio, self).write(stream)
+
+class pssh(Atom):
+    def __init__(self, size, type, name, offset, file):
+        super(pssh, self).__init__(size, type, name, offset, file)
+        self._set_attr('system_id', file.read(16))
+        self._set_attr('content_size', read32(file))
+        self._set_attr('content', file.read(self.get_attribute('content_size')))
 
 class data(Atom):
     def __init__(self, size, type, name, offset, file):
