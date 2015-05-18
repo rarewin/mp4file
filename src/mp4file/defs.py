@@ -1,4 +1,3 @@
-
 import os
 
 # python 2.4 compatibility
@@ -10,9 +9,3 @@ except:
     SEEK_SET = 0
     SEEK_CUR = 1
     SEEK_END = 2
-
-from defs import *
-from mp4file import (
-    Mp4File,
-    Atom
-)
