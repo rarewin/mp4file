@@ -8,7 +8,9 @@ Created on Dec 6, 2009
 
 # built-in modules
 import logging
-import os
+
+# definitions
+from defs import *
 
 # local modules
 from atom import parse_atoms, Atom
@@ -18,9 +20,9 @@ log = logging.getLogger("mp4file")
 
 
 def getFileSize(file):
-    file.seek(0, os.SEEK_END)
+    file.seek(0, SEEK_END)
     endFile = file.tell()
-    file.seek(0, os.SEEK_SET)
+    file.seek(0, SEEK_SET)
     return endFile
 
 

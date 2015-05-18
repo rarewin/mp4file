@@ -6,8 +6,8 @@ Created on Dec 6, 2009
 @author: napier
 '''
 import logging
-import os
 import struct
+from defs import *
 
 from atomsearch import find_path, findall_path
 
@@ -79,7 +79,7 @@ FULL_BOX = (
 
 
 class EndOFFile(Exception):
-    def __init_(self):
+    def __init__(self):
         Exception.__init__(self)
 
 
@@ -146,7 +146,7 @@ def create_atom(size, type, offset, file):
     try:
         # Try and eval the class into existance
         return eval("%s(size, type, clz, offset, file)" % clz)
-    except NameError:
+    except Exception:
         # Not defined, use generic Atom
         return Atom(size, type, clz, offset, file)
 
@@ -170,7 +170,7 @@ def parse_atoms(file, maxFileOffset):
         atoms.append(atom)
 
         # Seek to the end of the atom
-        file.seek(atom.offset + atom.size, os.SEEK_SET)
+        file.seek(atom.offset + atom.size, SEEK_SET)
 
     return atoms
 
@@ -251,6 +251,14 @@ class Atom(object):
     def findall(self, path):
         return findall_path(self, path)
 
+    def read_data(self, offset=0):
+        f = self.file
+        pos = f.tell()
+        f.seek(self.offset + offset)
+        d = f.read(self.size - offset)
+        f.seek(pos)
+        return d
+
     def _write_header(self, stream):
         stream.write(struct.pack('>I', self.size))
         stream.write(self.type)
@@ -268,7 +276,7 @@ class Atom(object):
             for child in self.children:
                 child.write(stream)
         else:
-            self.file.seek(self.offset+self.header_size, os.SEEK_SET)
+            self.file.seek(self.offset+self.header_size, SEEK_SET)
             stream.write(self.file.read(self.get_actual_size()-self.header_size))
 
     def write(self, stream):
@@ -281,9 +289,9 @@ class Atom(object):
         # data
         self._write_data(stream)
 
-    def writeFile(self, filename):
-        with open(filename, 'w') as fout:
-            self.write(fout)
+#    def writeFile(self, filename):
+#        with open(filename, 'w') as fout:
+#            self.write(fout)
 
 
 class ftyp(Atom):
@@ -307,7 +315,7 @@ class saio(Atom):
             self.version = self.flags = None
             self._write_header(stream)
             self.version, self.flags = version, flags
-            self.file.seek(self.offset+self.header_size+4, os.SEEK_SET)
+            self.file.seek(self.offset+self.header_size+4, SEEK_SET)
             stream.write(self.file.read(self.get_actual_size()-4-self.header_size))
             stream.write(struct.pack('>I', 0))
             stream.write(struct.pack('>I', 0))
