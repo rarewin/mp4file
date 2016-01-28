@@ -233,7 +233,8 @@ class Atom(object):
         self.children = children
 
     def get_attribute(self, key):
-        return self.attrs[key]
+        if self.attrs.has_key(key):
+            return self.attrs[key]
 
     def get_actual_size(self):
         if self.size == 1:
@@ -297,8 +298,104 @@ class Atom(object):
 class ftyp(Atom):
     def __init__(self, size, type, name, offset, file):
         Atom.__init__(self, size, type, name, offset, file)
-        self._set_attr('major_version', type_to_str(read32(file)))
-        self._set_attr('minor_version', read32(file))
+        self._set_attr('Major_Brand', type_to_str(read32(file)))
+        self._set_attr('Minor_version', read32(file))
+
+        cbrands = []
+        for i in range((size - 16) / 4):
+            cbrands.append(type_to_str(read32(file)))
+
+        self._set_attr('Compatible_Brands', cbrands)
+
+class pnot(Atom):
+    def __init__(self, size, type, name, offset, file):
+        Atom.__init__(self, size, type, name, offset, file)
+        self._set_attr('Modification date', read32(file))
+        self._set_attr('Atom type', type_to_str(read32(file)))
+        self._set_attr('Atom index', type_to_str(read16(file)))
+
+class mvhd(Atom):
+    "Movie Header Atoms"
+    def __init__(self, size, type, name, offset, file):
+        Atom.__init__(self, size, type, name, offset, file)
+        self._set_attr('Creation time', read32(file))
+        self._set_attr('Modification time', read32(file))
+        self._set_attr('Time scale', read32(file))
+        self._set_attr('Duration', read32(file))
+        self._set_attr('Preferred rate', read16(file))
+        self._set_attr('Preferred volume', read16(file))
+
+        # reserved (10 bytes)
+        file.read(10)
+
+        mstruct = {}
+
+        for k in ['a', 'b', 'u', 'c', 'd', 'v', 'x', 'y', 'w']:
+            mstruct[k] = read32(file)
+
+        self._set_attr('Matrix structure', mstruct)
+        self._set_attr('Preview time', read32(file))
+        self._set_attr('Preview duration', read32(file))
+        self._set_attr('Poster time', read32(file))
+        self._set_attr('Selection time', read32(file))
+        self._set_attr('Selection duration', read32(file))
+        self._set_attr('Current time', read32(file))
+        self._set_attr('Next track ID', read32(file))
+
+class tkhd(Atom):
+    "Track Header Atoms"
+    def __init__(self, size, type, name, offset, file):
+        Atom.__init__(self, size, type, name, offset, file)
+        self._set_attr('Creation time', read32(file))
+        self._set_attr('Modification time', read32(file))
+        self._set_attr('Track ID', read32(file))
+        file.read(4) # reserved
+        self._set_attr('Duration', read32(file))
+        file.read(8) # reserved
+        self._set_attr('Layer', read16(file))
+        self._set_attr('Alternate group', read16(file))
+        self._set_attr('Volume', read16(file))
+        file.read(2) # reserved
+        mstruct = {}
+
+        for k in ['a', 'b', 'u', 'c', 'd', 'v', 'x', 'y', 'w']:
+            mstruct[k] = read32(file)
+
+        self._set_attr('Matrix structure', mstruct)
+        self._set_attr('Track width', read32(file))
+        self._set_attr('Track height', read32(file))
+
+class mdhd(Atom):
+    "Media Header Atoms"
+    def __init__(self, size, type, name, offset, file):
+        Atom.__init__(self, size, type, name, offset, file)
+        self._set_attr('Creation time', read32(file))
+        self._set_attr('Modification time', read32(file))
+        self._set_attr('Time scale', read32(file))
+        self._set_attr('Duration', read32(file))
+        self._set_attr('Language', read16(file))
+        self._set_attr('Quality', read16(file))
+
+class vmhd(Atom):
+    "Video Media Information Header Atoms"
+    def __init__(self, size, type, name, offset, file):
+        Atom.__init__(self, size, type, name, offset, file)
+        self._set_attr('Graphics mode', read16(file))
+        self._set_attr('Opcolor (red)', read16(file))
+        self._set_attr('Opcolor (green)', read16(file))
+        self._set_attr('Opcolor (blue)', read16(file))
+
+class hdlr(Atom):
+    "Handler Reference Atoms"
+    def __init__(self, size, type, name, offset, file):
+        Atom.__init__(self, size, type, name, offset, file)
+        self._set_attr('Component type', type_to_str(read32(file)))
+        self._set_attr('Component subtype', type_to_str(read32(file)))
+        self._set_attr('Component manufacture', read32(file))
+        self._set_attr('Component flags', read32(file))
+        self._set_attr('Component flags mask', read32(file))
+
+        # Component name... (string)
 
 class meta(Atom):
     def __init__(self, size, type, name, offset, file):
