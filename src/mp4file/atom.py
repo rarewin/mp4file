@@ -66,7 +66,7 @@ ATOM_WITH_CHILDREN = [ 'stik', 'moov', 'trak',
                       ]
 
 FULL_BOX = (
-        'mfhd', 'tfhd', 'trun', 
+        'mfhd', 'tfhd', 'trun',
         'ctts', 'dref', 'elst',
         'esds', 'hmhd', 'mdhd',
         'mehd', 'mvhd', 'nmhd',
@@ -453,3 +453,23 @@ class data(Atom):
         read32(self.file)
         howMuch = self.size - 16
         return unicode(self.file.read(howMuch), "utf-8")
+
+class stsz(Atom):
+    def __init__(self, size, type, name, offset, file):
+        Atom.__init__(self, size, type, name, offset, file)
+        sample_size = read32(file)
+        self._set_attr('Sample_size', sample_size)
+
+        if sample_size <> 0:
+            num_entries = read32(file)
+            self._set_attr('Number_of_entries', num_entries)
+            table = struct.unpack(">" + "I" * num_entries, file.read(4 * num_entries))
+            self._set_attr('Sample_size_table', table)
+
+class stco(Atom):
+    def __init__(self, size, type, name, offset, file):
+        Atom.__init__(self, size, type, name, offset, file)
+        num_entries = read32(file)
+        self._set_attr('Number_of_entries', num_entries)
+        table = struct.unpack(">" + "I" * num_entries, file.read(4 * num_entries))
+        self._set_attr("Chunk_offset_table", table)

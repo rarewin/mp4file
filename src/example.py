@@ -1,9 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 '''
 Created on Dec 6, 2009
 
 @author: napier
 '''
+
+import sys
 
 from mp4file.mp4file import Mp4File
 
@@ -23,12 +25,19 @@ def print_all_metadata_atoms(file):
         print atom.parent.name, data
 
 if __name__ == '__main__':
-    file = Mp4File("/home/napier/bill.mp4")
 
-    title = find_metadata_atom(file, 'title')
-    tvshow = find_metadata_atom(file, 'tvsh')
-    tvepisodenum = find_metadata_atom(file, 'tvepisode')
-    tvseason = find_metadata_atom(file, 'tvseason')
+    if len(sys.argv) < 2:
+        print("too few argumtes.")
+        sys.exit(1)
+
+    file = Mp4File(sys.argv[1])
+
+    print_atoms(file)
+
+    #title = find_metadata_atom(file, 'title')
+    #tvshow = find_metadata_atom(file, 'tvsh')
+    #tvepisodenum = find_metadata_atom(file, 'tvepisode')
+    #tvseason = find_metadata_atom(file, 'tvseason')
     #track = find_metadata_atom(file, 'trkn')
-    print title, tvshow, tvepisodenum, tvseason
+    #print title, tvshow, tvepisodenum, tvseason
     #print_atoms(file)
