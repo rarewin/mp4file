@@ -473,3 +473,22 @@ class stco(Atom):
         self._set_attr('Number_of_entries', num_entries)
         table = struct.unpack(">" + "I" * num_entries, file.read(4 * num_entries))
         self._set_attr("Chunk_offset_table", table)
+
+class stts(Atom):
+    "Time-to-Sample Atoms"
+    def __init__(self, size, type, name, offset, file):
+        Atom.__init__(self, size, type, name, offset, file)
+        num_entries = read32(file)
+        self._set_attr('Number_of_entries', num_entries)
+        table = struct.unpack(">" + "I" * num_entries, file.read(4 * num_entries))
+        self._set_attr("Time_to_sample_table", table)
+
+class stsd(Atom):
+    "Sample Description Atoms"
+    def __init__(self, size, type, name, offset, file):
+        Atom.__init__(self, size, type, name, offset, file)
+        num_entries = read32(file)
+        self._set_attr('Number_of_entries', num_entries)
+        table = struct.unpack(">" + "I" * num_entries, file.read(4 * num_entries))
+        self._set_attr("Sample_description_table", table)
+
