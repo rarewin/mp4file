@@ -34,10 +34,5 @@ if __name__ == '__main__':
 
     print_atoms(file)
 
-    #title = find_metadata_atom(file, 'title')
-    #tvshow = find_metadata_atom(file, 'tvsh')
-    #tvepisodenum = find_metadata_atom(file, 'tvepisode')
-    #tvseason = find_metadata_atom(file, 'tvseason')
-    #track = find_metadata_atom(file, 'trkn')
-    #print title, tvshow, tvepisodenum, tvseason
-    #print_atoms(file)
+    for a in file.findall('.//ftyp'):
+        print a.attrs

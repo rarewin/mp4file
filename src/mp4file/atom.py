@@ -7,6 +7,7 @@ Created on Dec 6, 2009
 '''
 import logging
 import struct
+import datetime
 from defs import *
 
 from atomsearch import find_path, findall_path
@@ -127,15 +128,19 @@ def read8(file):
         raise EndOFFile()
     return struct.unpack(">B", data)[0]
 
+def readdate(file):
+    data = read32(file)
+    d = datetime.datetime.strptime("01-01-1904", "%m-%d-%Y")
+    return (d + datetime.timedelta(seconds = data)).strftime("%a, %d %b %Y %H:%M:%S GMT")
 
-def type_to_str(data):
-    a = (data >> 0) & 0xff
-    b = (data >> 8) & 0xff
-    c = (data >> 16) & 0xff
-    d = (data >> 24) & 0xff
+def readstr4(file):
+    return file.read(4)
 
-    return '%c%c%c%c' % (d, c, b, a)
-
+def read_layout(file, info):
+    ret = {}
+    for info, fmt in info.items():
+        ret[info] = eval("read%s(file)" % fmt)
+    return ret
 
 def create_atom(size, type, offset, file):
     clz = type
@@ -157,7 +162,7 @@ def parse_atom(file):
     try:
         offset = file.tell()
         size = read32(file)
-        type = type_to_str(read32(file))
+        type = file.read(4)
         return create_atom(size, type, offset, file)
     except EndOFFile:
         return None
@@ -298,32 +303,28 @@ class Atom(object):
 class ftyp(Atom):
     def __init__(self, size, type, name, offset, file):
         Atom.__init__(self, size, type, name, offset, file)
-        self._set_attr('Major_Brand', type_to_str(read32(file)))
-        self._set_attr('Minor_version', read32(file))
+
+        self.attrs.update(read_layout(file,
+                                  {'Major_Brand':   'str4',
+                                   'Minor_version': '32'}))
 
         cbrands = []
         for i in range((size - 16) / 4):
-            cbrands.append(type_to_str(read32(file)))
-
+            cbrands.append(file.read(4))
         self._set_attr('Compatible_Brands', cbrands)
-
-class pnot(Atom):
-    def __init__(self, size, type, name, offset, file):
-        Atom.__init__(self, size, type, name, offset, file)
-        self._set_attr('Modification date', read32(file))
-        self._set_attr('Atom type', type_to_str(read32(file)))
-        self._set_attr('Atom index', type_to_str(read16(file)))
 
 class mvhd(Atom):
     "Movie Header Atoms"
     def __init__(self, size, type, name, offset, file):
         Atom.__init__(self, size, type, name, offset, file)
-        self._set_attr('Creation time', read32(file))
-        self._set_attr('Modification time', read32(file))
-        self._set_attr('Time scale', read32(file))
-        self._set_attr('Duration', read32(file))
-        self._set_attr('Preferred rate', read16(file))
-        self._set_attr('Preferred volume', read16(file))
+
+        self.attrs.update(read_layout(file,
+                                      {'Creation time':     'date',
+                                       'Modification time': 'date',
+                                       'Time scale':        '32',
+                                       'Duration':          '32',
+                                       'Preferred rate':    '16',
+                                       'Preferred volume':  '16',}))
 
         # reserved (10 bytes)
         file.read(10)
@@ -334,66 +335,75 @@ class mvhd(Atom):
             mstruct[k] = read32(file)
 
         self._set_attr('Matrix structure', mstruct)
-        self._set_attr('Preview time', read32(file))
-        self._set_attr('Preview duration', read32(file))
-        self._set_attr('Poster time', read32(file))
-        self._set_attr('Selection time', read32(file))
-        self._set_attr('Selection duration', read32(file))
-        self._set_attr('Current time', read32(file))
-        self._set_attr('Next track ID', read32(file))
+
+        self.attrs.update(read_layout(file,
+                                      {'Preview time':       '32',
+                                       'Preview duration':   '32',
+                                       'Poster time':        '32',
+                                       'Selection time':     '32',
+                                       'Selection duration': '32',
+                                       'Current time':       '32',
+                                       'Next track ID':      '32'}))
 
 class tkhd(Atom):
     "Track Header Atoms"
     def __init__(self, size, type, name, offset, file):
         Atom.__init__(self, size, type, name, offset, file)
-        self._set_attr('Creation time', read32(file))
-        self._set_attr('Modification time', read32(file))
-        self._set_attr('Track ID', read32(file))
-        file.read(4) # reserved
-        self._set_attr('Duration', read32(file))
-        file.read(8) # reserved
-        self._set_attr('Layer', read16(file))
-        self._set_attr('Alternate group', read16(file))
-        self._set_attr('Volume', read16(file))
-        file.read(2) # reserved
+        self.attrs.update(read_layout(file,
+                                  {'Creation time':     'date',
+                                   'Modification time': 'date',
+                                   'Track ID':          '32',
+                                   'reserved0':         '32',
+                                   'Duration':          '32',
+                                   'reserved1':         '64',
+                                   'Layer':             '16',
+                                   'Alternate group':   '16',
+                                   'Volume':            '16',
+                                   'reserved2':         '16'}))
+
         mstruct = {}
 
         for k in ['a', 'b', 'u', 'c', 'd', 'v', 'x', 'y', 'w']:
             mstruct[k] = read32(file)
 
         self._set_attr('Matrix structure', mstruct)
-        self._set_attr('Track width', read32(file))
-        self._set_attr('Track height', read32(file))
+
+        self.attrs.update(read_layout(file,
+                                  {'Track width':  '32',
+                                   'Track height': '32'}))
 
 class mdhd(Atom):
     "Media Header Atoms"
     def __init__(self, size, type, name, offset, file):
         Atom.__init__(self, size, type, name, offset, file)
-        self._set_attr('Creation time', read32(file))
-        self._set_attr('Modification time', read32(file))
-        self._set_attr('Time scale', read32(file))
-        self._set_attr('Duration', read32(file))
-        self._set_attr('Language', read16(file))
-        self._set_attr('Quality', read16(file))
+        self.attrs.update(read_layout(file,
+                                      {'Creation time':     'date',
+                                       'Modification time': 'date',
+                                       'Time scale':        '32',
+                                       'Duration':          '32',
+                                       'Language':          '16',
+                                       'Quality':           '16'}))
 
 class vmhd(Atom):
     "Video Media Information Header Atoms"
     def __init__(self, size, type, name, offset, file):
         Atom.__init__(self, size, type, name, offset, file)
-        self._set_attr('Graphics mode', read16(file))
-        self._set_attr('Opcolor (red)', read16(file))
-        self._set_attr('Opcolor (green)', read16(file))
-        self._set_attr('Opcolor (blue)', read16(file))
+        self.attrs.update(read_layout(file,
+                                      {'Graphics mode':   '16',
+                                       'Opcolor (red)':   '16',
+                                       'Opcolor (green)': '16',
+                                       'Opcolor (blue)' : '16'}))
 
 class hdlr(Atom):
     "Handler Reference Atoms"
     def __init__(self, size, type, name, offset, file):
         Atom.__init__(self, size, type, name, offset, file)
-        self._set_attr('Component type', type_to_str(read32(file)))
-        self._set_attr('Component subtype', type_to_str(read32(file)))
-        self._set_attr('Component manufacture', read32(file))
-        self._set_attr('Component flags', read32(file))
-        self._set_attr('Component flags mask', read32(file))
+        self.attrs.update(read_layout(file,
+                                      {'Component type':        'str4',
+                                       'Component subtype':     '32',
+                                       'Component manufacture': '32',
+                                       'Component flags':       '32',
+                                       'Component flags mask':  '32'}))
 
         # Component name... (string)
 
@@ -491,4 +501,3 @@ class stsd(Atom):
         self._set_attr('Number_of_entries', num_entries)
         table = struct.unpack(">" + "I" * num_entries, file.read(4 * num_entries))
         self._set_attr("Sample_description_table", table)
-
